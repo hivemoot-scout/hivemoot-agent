@@ -28,6 +28,10 @@ variable "KILO_VERSION" {
   default = "latest"
 }
 
+variable "OPENCODE_VERSION" {
+  default = "latest"
+}
+
 variable "CLAUDE_CODE_VERSION" {
   default = "latest"
 }
@@ -45,14 +49,10 @@ target "base" {
     CODEX_VERSION = CODEX_VERSION
     GEMINI_VERSION = GEMINI_VERSION
     KILO_VERSION = KILO_VERSION
+    OPENCODE_VERSION = OPENCODE_VERSION
     CLAUDE_CODE_VERSION = CLAUDE_CODE_VERSION
     HIVEMOOT_CLI_VERSION = HIVEMOOT_CLI_VERSION
   }
-}
-
-# Provider matrix: generates targets for each provider
-matrix = {
-  provider = ["codex", "gemini", "claude", "kilo", "all"]
 }
 
 # Provider-specific targets
@@ -60,6 +60,9 @@ target "default" {
   name = "hivemoot-agent-${provider}"
   inherits = ["base"]
   target = "runtime"
+  matrix = {
+    provider = ["codex", "gemini", "claude", "kilo", "opencode", "all"]
+  }
   args = {
     PROVIDER = provider
   }
@@ -76,12 +79,12 @@ target "default" {
   }
 }
 
-# Default target for docker compose (claude provider)
+# Default target for docker compose (all providers)
 target "compose" {
   inherits = ["base"]
   target = "runtime"
   args = {
-    PROVIDER = "claude"
+    PROVIDER = "all"
   }
   tags = ["hivemoot-agent:local"]
 }

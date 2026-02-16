@@ -8,7 +8,7 @@
 #
 # See docker-bake.hcl for production multi-variant builds.
 
-ARG PROVIDER=claude
+ARG PROVIDER=all
 
 # ────────────────────────────────────────────────────────────────────────────
 # Stage: base
@@ -17,6 +17,12 @@ ARG PROVIDER=claude
 FROM node:24-slim AS base
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG CODEX_VERSION=latest
+ARG GEMINI_VERSION=latest
+ARG KILO_VERSION=latest
+ARG OPENCODE_VERSION=latest
+ARG CLAUDE_CODE_VERSION=latest
+ARG HIVEMOOT_CLI_VERSION=latest
 
 # Install system dependencies. gh is installed from GitHub's official apt repo
 # because the Debian-packaged version is too old (2.23 vs 2.80+).
@@ -51,10 +57,12 @@ ENV PATH=/home/node/.local/bin:/usr/local/share/npm-global/bin:${PATH}
 USER node
 
 # Install hivemoot CLI (shared across all providers)
-ARG HIVEMOOT_CLI_VERSION=latest
 RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
-  npm install -g "@hivemoot-dev/cli@${HIVEMOOT_CLI_VERSION}" \
-  && npm cache clean --force
+  npm install -g "@hivemoot-dev/cli@${HIVEMOOT_CLI_VERSION}"
+
+USER root
+RUN ln -sf /usr/local/share/npm-global/bin/hivemoot /usr/local/bin/hivemoot
+USER node
 
 # ────────────────────────────────────────────────────────────────────────────
 # Stage: provider-codex
@@ -65,7 +73,6 @@ FROM base AS provider-codex
 ARG CODEX_VERSION=latest
 RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
   npm install -g "@openai/codex@${CODEX_VERSION}" \
-  && npm cache clean --force \
   && mkdir -p /home/node/.codex
 
 USER root
@@ -81,7 +88,6 @@ FROM base AS provider-gemini
 ARG GEMINI_VERSION=latest
 RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
   npm install -g "@google/gemini-cli@${GEMINI_VERSION}" \
-  && npm cache clean --force \
   && mkdir -p /home/node/.gemini
 
 USER root
@@ -119,23 +125,38 @@ FROM base AS provider-kilo
 ARG KILO_VERSION=latest
 RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
   npm install -g "@kilocode/cli@${KILO_VERSION}" \
-  && npm cache clean --force \
-  && mkdir -p /home/node/.config/kilocode
+  && mkdir -p /home/node/.config/kilo
 
 USER root
 RUN ln -sf /usr/local/share/npm-global/bin/kilo /usr/local/bin/kilo
 USER node
 
 # ────────────────────────────────────────────────────────────────────────────
+# Stage: provider-opencode
+# OpenCode CLI (~50 MB)
+# ────────────────────────────────────────────────────────────────────────────
+FROM base AS provider-opencode
+
+ARG OPENCODE_VERSION=latest
+RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
+  npm install -g "opencode-ai@${OPENCODE_VERSION}" \
+  && mkdir -p /home/node/.config/opencode /home/node/.local/share/opencode
+
+USER root
+RUN ln -sf /usr/local/share/npm-global/bin/opencode /usr/local/bin/opencode
+USER node
+
+# ────────────────────────────────────────────────────────────────────────────
 # Stage: provider-all
 # Multi-provider stage with all CLI tools (backward compatibility)
-# Size: ~440 MB (base + 4 providers)
+# Size: ~550 MB (base + 5 providers)
 # ────────────────────────────────────────────────────────────────────────────
 FROM base AS provider-all
 
 ARG CODEX_VERSION=latest
 ARG GEMINI_VERSION=latest
 ARG KILO_VERSION=latest
+ARG OPENCODE_VERSION=latest
 ARG CLAUDE_CODE_VERSION=latest
 
 # Install all npm-based CLIs
@@ -144,8 +165,8 @@ RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
     "@openai/codex@${CODEX_VERSION}" \
     "@google/gemini-cli@${GEMINI_VERSION}" \
     "@kilocode/cli@${KILO_VERSION}" \
-  && npm cache clean --force \
-  && mkdir -p /home/node/.codex /home/node/.gemini /home/node/.config/kilocode
+    "opencode-ai@${OPENCODE_VERSION}" \
+  && mkdir -p /home/node/.codex /home/node/.gemini /home/node/.config/kilo /home/node/.config/opencode /home/node/.local/share/opencode
 
 # Install Claude native installer
 WORKDIR /tmp/claude-install
@@ -160,6 +181,7 @@ USER root
 RUN ln -sf /usr/local/share/npm-global/bin/codex /usr/local/bin/codex \
   && ln -sf /usr/local/share/npm-global/bin/gemini /usr/local/bin/gemini \
   && ln -sf /usr/local/share/npm-global/bin/kilo /usr/local/bin/kilo \
+  && ln -sf /usr/local/share/npm-global/bin/opencode /usr/local/bin/opencode \
   && ln -sf /home/node/.local/bin/claude /usr/local/bin/claude
 
 USER node
