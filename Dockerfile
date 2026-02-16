@@ -8,6 +8,8 @@
 #
 # See docker-bake.hcl for production multi-variant builds.
 
+ARG PROVIDER=claude
+
 # ────────────────────────────────────────────────────────────────────────────
 # Stage: base
 # Common system dependencies shared by all providers
@@ -94,6 +96,8 @@ FROM base AS provider-claude
 
 ARG CLAUDE_CODE_VERSION=latest
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Anthropic deprecated npm installation for Claude Code; use the native
 # installer so we stay aligned with supported distribution. Install from a
 # small temporary directory to avoid known installer OOM failures in Docker.
@@ -145,6 +149,7 @@ RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
 
 # Install Claude native installer
 WORKDIR /tmp/claude-install
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl -fsSL https://claude.ai/install.sh | bash -s -- "${CLAUDE_CODE_VERSION}" \
   && rm -rf /tmp/claude-install \
   && mkdir -p /home/node/.claude /home/node/.config/claude
@@ -163,7 +168,7 @@ USER node
 # Stage: runtime
 # Runtime selector based on PROVIDER build arg
 # ────────────────────────────────────────────────────────────────────────────
-ARG PROVIDER=claude
+# hadolint ignore=DL3006
 FROM provider-${PROVIDER} AS runtime
 
 WORKDIR /workspace

@@ -113,6 +113,7 @@ Each slot requires both `AGENT_ID_XX` and `AGENT_GITHUB_TOKEN_XX` (or `_FILE`). 
 By default, `docker compose` builds an optimized single-provider image (~350 MB). For even smaller images or multi-provider builds, use Docker Bake:
 
 **Build single provider (recommended for production):**
+
 ```bash
 docker buildx bake hivemoot-agent-claude  # Claude only (~350 MB)
 docker buildx bake hivemoot-agent-codex   # Codex only (~250 MB)
@@ -121,11 +122,13 @@ docker buildx bake hivemoot-agent-kilo    # Kilo only (~250 MB)
 ```
 
 **Build all providers at once:**
+
 ```bash
 docker buildx bake  # Builds all provider variants in parallel
 ```
 
 **Select provider for docker compose:**
+
 ```bash
 # In .env:
 DOCKER_PROVIDER=claude  # Options: claude | codex | gemini | kilo | all
