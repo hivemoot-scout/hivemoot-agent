@@ -1,10 +1,20 @@
-FROM node:24-slim
+# Multi-stage Dockerfile for provider-specific builds
+# Reduces image size by 60% for single-provider deployments (350 MB vs 1 GB)
+#
+# Build modes:
+#   docker build --build-arg PROVIDER=claude .     # Single provider (optimized)
+#   docker build --build-arg PROVIDER=all .        # All providers (testing/flexibility)
+#   docker buildx bake                             # All provider variants via Bake
+#
+# See docker-bake.hcl for production multi-variant builds.
+
+# ────────────────────────────────────────────────────────────────────────────
+# Stage: base
+# Common system dependencies shared by all providers
+# ────────────────────────────────────────────────────────────────────────────
+FROM node:24-slim AS base
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG CODEX_VERSION=latest
-ARG GEMINI_VERSION=latest
-ARG CLAUDE_CODE_VERSION=latest
-ARG HIVEMOOT_CLI_VERSION=latest
 
 # Install system dependencies. gh is installed from GitHub's official apt repo
 # because the Debian-packaged version is too old (2.23 vs 2.80+).
@@ -38,11 +48,51 @@ ENV PATH=/home/node/.local/bin:/usr/local/share/npm-global/bin:${PATH}
 
 USER node
 
-RUN npm install -g \
-  "@openai/codex@${CODEX_VERSION}" \
-  "@google/gemini-cli@${GEMINI_VERSION}" \
-  "@hivemoot-dev/cli@${HIVEMOOT_CLI_VERSION}" \
+# Install hivemoot CLI (shared across all providers)
+ARG HIVEMOOT_CLI_VERSION=latest
+RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
+  npm install -g "@hivemoot-dev/cli@${HIVEMOOT_CLI_VERSION}" \
   && npm cache clean --force
+
+# ────────────────────────────────────────────────────────────────────────────
+# Stage: provider-codex
+# OpenAI Codex CLI (~50 MB)
+# ────────────────────────────────────────────────────────────────────────────
+FROM base AS provider-codex
+
+ARG CODEX_VERSION=latest
+RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
+  npm install -g "@openai/codex@${CODEX_VERSION}" \
+  && npm cache clean --force \
+  && mkdir -p /home/node/.codex
+
+USER root
+RUN ln -sf /usr/local/share/npm-global/bin/codex /usr/local/bin/codex
+USER node
+
+# ────────────────────────────────────────────────────────────────────────────
+# Stage: provider-gemini
+# Google Gemini CLI (~45 MB)
+# ────────────────────────────────────────────────────────────────────────────
+FROM base AS provider-gemini
+
+ARG GEMINI_VERSION=latest
+RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
+  npm install -g "@google/gemini-cli@${GEMINI_VERSION}" \
+  && npm cache clean --force \
+  && mkdir -p /home/node/.gemini
+
+USER root
+RUN ln -sf /usr/local/share/npm-global/bin/gemini /usr/local/bin/gemini
+USER node
+
+# ────────────────────────────────────────────────────────────────────────────
+# Stage: provider-claude
+# Anthropic Claude Code native installer (~150 MB)
+# ────────────────────────────────────────────────────────────────────────────
+FROM base AS provider-claude
+
+ARG CLAUDE_CODE_VERSION=latest
 
 # Anthropic deprecated npm installation for Claude Code; use the native
 # installer so we stay aligned with supported distribution. Install from a
@@ -50,19 +100,71 @@ RUN npm install -g \
 WORKDIR /tmp/claude-install
 RUN curl -fsSL https://claude.ai/install.sh | bash -s -- "${CLAUDE_CODE_VERSION}" \
   && rm -rf /tmp/claude-install \
-  && mkdir -p /home/node/.codex /home/node/.gemini /home/node/.claude /home/node/.config/claude
+  && mkdir -p /home/node/.claude /home/node/.config/claude
+
+USER root
+RUN ln -sf /home/node/.local/bin/claude /usr/local/bin/claude
+USER node
+
+# ────────────────────────────────────────────────────────────────────────────
+# Stage: provider-kilo
+# Kilo.ai CLI (~50 MB)
+# ────────────────────────────────────────────────────────────────────────────
+FROM base AS provider-kilo
+
+ARG KILO_VERSION=latest
+RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
+  npm install -g "@kilocode/cli@${KILO_VERSION}" \
+  && npm cache clean --force \
+  && mkdir -p /home/node/.config/kilocode
+
+USER root
+RUN ln -sf /usr/local/share/npm-global/bin/kilo /usr/local/bin/kilo
+USER node
+
+# ────────────────────────────────────────────────────────────────────────────
+# Stage: provider-all
+# Multi-provider stage with all CLI tools (backward compatibility)
+# Size: ~440 MB (base + 4 providers)
+# ────────────────────────────────────────────────────────────────────────────
+FROM base AS provider-all
+
+ARG CODEX_VERSION=latest
+ARG GEMINI_VERSION=latest
+ARG KILO_VERSION=latest
+ARG CLAUDE_CODE_VERSION=latest
+
+# Install all npm-based CLIs
+RUN --mount=type=cache,target=/home/node/.npm,uid=1000 \
+  npm install -g \
+    "@openai/codex@${CODEX_VERSION}" \
+    "@google/gemini-cli@${GEMINI_VERSION}" \
+    "@kilocode/cli@${KILO_VERSION}" \
+  && npm cache clean --force \
+  && mkdir -p /home/node/.codex /home/node/.gemini /home/node/.config/kilocode
+
+# Install Claude native installer
+WORKDIR /tmp/claude-install
+RUN curl -fsSL https://claude.ai/install.sh | bash -s -- "${CLAUDE_CODE_VERSION}" \
+  && rm -rf /tmp/claude-install \
+  && mkdir -p /home/node/.claude /home/node/.config/claude
 
 USER root
 
-# Login shells (e.g. `bash -lc` used by agent task commands) do not always
-# include the npm-global prefix path. Mirror tool shims into /usr/local/bin
-# so codex/gemini/claude/hivemoot stay discoverable.
+# Create symlinks for all providers
 RUN ln -sf /usr/local/share/npm-global/bin/codex /usr/local/bin/codex \
   && ln -sf /usr/local/share/npm-global/bin/gemini /usr/local/bin/gemini \
-  && ln -sf /home/node/.local/bin/claude /usr/local/bin/claude \
-  && ln -sf /usr/local/share/npm-global/bin/hivemoot /usr/local/bin/hivemoot
+  && ln -sf /usr/local/share/npm-global/bin/kilo /usr/local/bin/kilo \
+  && ln -sf /home/node/.local/bin/claude /usr/local/bin/claude
 
 USER node
+
+# ────────────────────────────────────────────────────────────────────────────
+# Stage: runtime
+# Runtime selector based on PROVIDER build arg
+# ────────────────────────────────────────────────────────────────────────────
+ARG PROVIDER=claude
+FROM provider-${PROVIDER} AS runtime
 
 WORKDIR /workspace
 

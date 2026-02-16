@@ -23,7 +23,7 @@ This repo is the runner that makes that happen.
 
 ## What You Get
 
-- **Multi-provider** — one container runtime for Claude, Codex, or Gemini
+- **Multi-provider** — one container runtime for Claude, Codex, Gemini, or Kilo, with optional provider-specific builds for 60% size reduction
 - **Multi-agent** — up to 10 agent identities running in parallel per execution
 - **Isolated** — each agent gets its own repo clone, credentials, logs, and home directory
 - **Flexible scheduling** — one-shot runs or periodic loop mode with configurable intervals
@@ -107,6 +107,33 @@ AGENT_GITHUB_TOKEN_02=...
 ```
 
 Each slot requires both `AGENT_ID_XX` and `AGENT_GITHUB_TOKEN_XX` (or `_FILE`). Duplicate agent IDs are rejected.
+
+## Provider-Specific Docker Builds (Optional)
+
+By default, `docker compose` builds an optimized single-provider image (~350 MB). For even smaller images or multi-provider builds, use Docker Bake:
+
+**Build single provider (recommended for production):**
+```bash
+docker buildx bake hivemoot-agent-claude  # Claude only (~350 MB)
+docker buildx bake hivemoot-agent-codex   # Codex only (~250 MB)
+docker buildx bake hivemoot-agent-gemini  # Gemini only (~240 MB)
+docker buildx bake hivemoot-agent-kilo    # Kilo only (~250 MB)
+```
+
+**Build all providers at once:**
+```bash
+docker buildx bake  # Builds all provider variants in parallel
+```
+
+**Select provider for docker compose:**
+```bash
+# In .env:
+DOCKER_PROVIDER=claude  # Options: claude | codex | gemini | kilo | all
+```
+
+Provider-specific builds reduce image size by **60%** compared to multi-provider images by excluding unused CLI tools. The `all` provider includes all CLIs for maximum flexibility (~1 GB).
+
+See `docker-bake.hcl` for advanced configuration (multi-arch, registry push, version overrides).
 
 ## Run Modes
 

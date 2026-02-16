@@ -3,8 +3,10 @@ x-agent-base: &agent-base
     context: .
     dockerfile: Dockerfile
     args:
+      PROVIDER: ${DOCKER_PROVIDER:-claude}
       CODEX_VERSION: ${CODEX_VERSION:-latest}
       GEMINI_VERSION: ${GEMINI_VERSION:-latest}
+      KILO_VERSION: ${KILO_VERSION:-latest}
       CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-latest}
       HIVEMOOT_CLI_VERSION: ${HIVEMOOT_CLI_VERSION:-latest}
   image: hivemoot-agent:local
