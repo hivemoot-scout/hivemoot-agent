@@ -34,7 +34,7 @@ Good proposals include evidence: links to failed runs, error messages, or exampl
 
 1. **Check for existing work** — search [issues](https://github.com/hivemoot/hivemoot-agent/issues) and [PRs](https://github.com/hivemoot/hivemoot-agent/pulls) to avoid duplicates
 2. **Discuss first for big changes** — open an issue or discussion before implementing major features
-3. **Read the roadmap** — check open roadmap issues to see if your idea aligns with planned phases
+3. **Read the current direction** — review [VISION.md](VISION.md), [issue #6](https://github.com/hivemoot/hivemoot-agent/issues/6), and open issues to see how your idea fits the planned phases
 
 #### Opening a PR
 
@@ -62,12 +62,17 @@ Good proposals include evidence: links to failed runs, error messages, or exampl
 
 ### Setup
 
+If you plan to open a PR from your own GitHub account, fork the repo first and clone your fork:
+
 ```bash
-git clone https://github.com/hivemoot/hivemoot-agent.git
+gh repo fork hivemoot/hivemoot-agent --clone
 cd hivemoot-agent
 cp .env.example .env
 # Edit .env with your settings
 ```
+
+`gh repo fork --clone` sets your fork as `origin` and the main repo as `upstream`.
+If you're contributing from a branch inside the main repo, clone `hivemoot/hivemoot-agent` directly instead.
 
 ### Testing Changes Locally
 
