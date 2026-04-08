@@ -151,8 +151,10 @@ docker compose run --rm -v ./secrets:/run/secrets:ro hivemoot-agent
 
 5. Check outputs:
 
-- Logs: `./data/runs/<agent-id>/<run-id>.log`
-- Repo clones: `./data/agents/<agent-id>/repo`
+- Direct `docker compose run` streams the worker log to your terminal and cleans up its temporary job workspace before exit.
+- Persistent repo/log state is available in managed modes:
+  - `AGENT_DRIVER=loop`: `./data/repo/agents/<agent-id>/repo` and `./data/repo/runs/<agent-id>/`
+  - `controller/main.sh`: `CONTROLLER_WORKSPACE_ROOT/{workspaces,runs,homes,jobs}/<job-id>/`
 
 ## Controller Agent Slots
 
@@ -315,6 +317,8 @@ What it does:
 - Owns delegated-task claim, heartbeat, and completion/failure reporting so the worker image stays trigger-free.
 - Writes per-job artifacts:
   - `jobs/<job-id>/job.json` (job spec)
+  - `runs/<job-id>/container.log` (worker container stdout/stderr)
+  - `homes/<job-id>/` (isolated HOME for provider auth state)
   - `workspaces/<job-id>/.hivemoot/status` and `summary` (completion sentinel)
 - Requires Bash 4+ on the host (`declare -A` is used). If needed, install a newer Bash with your platform package manager and run the script explicitly with that binary (for example Homebrew Bash on macOS).
 - Provider `*_FILE` values passed through the controller must be absolute host paths so Docker bind mounts succeed.
