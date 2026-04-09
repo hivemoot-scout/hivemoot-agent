@@ -74,7 +74,8 @@ cp .env.example .env
 **Run ShellCheck:**
 
 ```bash
-docker run --rm -v "$PWD:/mnt" koalaman/shellcheck:stable scripts/*.sh
+docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable \
+  sh -lc 'find compat controller worker shared scripts identities integrations workloads -name "*.sh" -print0 | xargs -0 shellcheck'
 ```
 
 **Run Hadolint:**
@@ -92,7 +93,9 @@ docker build -t hivemoot-agent:test .
 **Run an agent locally:**
 
 ```bash
-docker compose run --rm hivemoot-agent
+mkdir -p secrets
+# place your provider secret in ./secrets and point .env at /run/secrets/<name>
+docker compose run --rm -v ./secrets:/run/secrets:ro hivemoot-agent
 ```
 
 ### Code Style
@@ -100,7 +103,7 @@ docker compose run --rm hivemoot-agent
 - **Shell scripts:** Follow [Google Shell Style Guide](https://google.github.io/styleguide/shellguide.html)
 - **Indentation:** 2 spaces (no tabs)
 - **Line length:** Keep under 120 characters when practical
-- **ShellCheck:** All scripts must pass with no warnings (`shellcheck scripts/*.sh`)
+- **ShellCheck:** All shell entrypoints and helpers must pass with no warnings (`find compat controller worker shared scripts identities integrations workloads -name '*.sh' -print0 | xargs -0 shellcheck`)
 
 ## Governance Process
 
