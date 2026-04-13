@@ -74,8 +74,8 @@ cp .env.example .env
 **Run ShellCheck:**
 
 ```bash
-docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable \
-  sh -lc 'find compat controller worker shared scripts identities integrations workloads -name "*.sh" -print0 | xargs -0 shellcheck'
+docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable sh -lc \
+  "find compat controller worker shared scripts identities integrations workloads -name '*.sh' -print0 | xargs -0 shellcheck"
 ```
 
 **Run Hadolint:**
@@ -90,20 +90,30 @@ docker run --rm -i hadolint/hadolint < Dockerfile
 docker build -t hivemoot-agent:test .
 ```
 
+**Smoke-test the checkout CLI:**
+
+```bash
+./cli/hivemoot-agent --help
+./cli/hivemoot-agent doctor
+```
+
 **Run an agent locally:**
 
 ```bash
 mkdir -p secrets
-# place your provider secret in ./secrets and point .env at /run/secrets/<name>
 docker compose run --rm -v ./secrets:/run/secrets:ro hivemoot-agent
 ```
+
+This compose path supplies the default `AGENT_IDENTITY=hivemoot-agent` and
+`AGENT_WORKLOAD=hivemoot` values from `docker-compose.yml`. Add your provider
+credential under `./secrets/` when your `.env` uses `*_FILE` variables.
 
 ### Code Style
 
 - **Shell scripts:** Follow [Google Shell Style Guide](https://google.github.io/styleguide/shellguide.html)
 - **Indentation:** 2 spaces (no tabs)
 - **Line length:** Keep under 120 characters when practical
-- **ShellCheck:** All shell entrypoints and helpers must pass with no warnings (`find compat controller worker shared scripts identities integrations workloads -name '*.sh' -print0 | xargs -0 shellcheck`)
+- **ShellCheck:** All shell entrypoints and shared libs must pass with no warnings
 
 ## Governance Process
 
@@ -130,7 +140,7 @@ This project uses [Hivemoot governance](https://github.com/hivemoot/hivemoot):
 ✅ **Add missing functionality** — features that make the runtime more capable
 ✅ **Improve documentation** — clarify unclear instructions or add examples
 ✅ **Simplify complexity** — refactor confusing code with tests that prove equivalence
-✅ **Evidence-driven proposals** — link to logs, error messages, or upstream docs
+✅ **Evidence-driven proposals** — link to logs, error messages, or examples from other projects
 
 ### Don't
 
