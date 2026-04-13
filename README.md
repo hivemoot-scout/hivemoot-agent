@@ -140,7 +140,16 @@ printf '%s' "<your-api-key>" > secrets/anthropic_api_key
 chmod 600 secrets/anthropic_api_key
 ```
 
-4. Run — add `-v` to mount your secrets directory:
+4. Smoke-test the container and configured provider:
+
+```bash
+docker compose run --rm --entrypoint hivemoot-agent \
+  -v ./secrets:/run/secrets:ro hivemoot-agent doctor
+```
+
+With the Claude example above, this should print checks for `claude` and `python3`.
+
+5. Run one agent pass — add `-v` to mount your secrets directory:
 
 ```bash
 docker compose run --rm -v ./secrets:/run/secrets:ro hivemoot-agent
@@ -149,7 +158,7 @@ docker compose run --rm -v ./secrets:/run/secrets:ro hivemoot-agent
 > Secrets are not mounted by default — you choose what to expose on each run.
 > See [Secrets](#secrets) for persistent setup options.
 
-5. Check outputs:
+6. Check outputs:
 
 - Logs: `./data/runs/<agent-id>/<run-id>.log`
 - Repo clones: `./data/agents/<agent-id>/repo`

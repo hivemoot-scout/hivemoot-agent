@@ -10,7 +10,17 @@ Commands:
 """
 
 import argparse
+import os
+import shutil
 import sys
+
+_PROVIDER_BINARIES = {
+    "claude": "claude",
+    "codex": "codex",
+    "gemini": "gemini",
+    "kilo": "kilo",
+    "opencode": "opencode",
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -59,10 +69,30 @@ def _cmd_oneshot(args: argparse.Namespace) -> int:
     return Engine().oneshot(prompt=args.prompt or None)
 
 
+def _resolve_doctor_provider() -> str:
+    provider = os.environ.get("AGENT_PROVIDER", "").strip()
+    if provider:
+        return provider
+
+    docker_provider = os.environ.get("DOCKER_PROVIDER", "").strip()
+    if docker_provider and docker_provider != "all":
+        return docker_provider
+
+    return "claude"
+
+
 def _cmd_doctor(args: argparse.Namespace) -> int:
-    import shutil
+    provider = _resolve_doctor_provider()
+    provider_binary = _PROVIDER_BINARIES.get(provider)
+    if provider_binary is None:
+        print(
+            f"  \u2717 provider: unsupported AGENT_PROVIDER '{provider}'",
+            file=sys.stderr,
+        )
+        return 1
+
     checks = [
-        ("claude", shutil.which("claude")),
+        (provider_binary, shutil.which(provider_binary)),
         ("python3", shutil.which("python3")),
     ]
     ok = True
